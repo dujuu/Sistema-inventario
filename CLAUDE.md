@@ -34,7 +34,10 @@ npm run dev
 - **`tsconfig.build.json` must pin `rootDir: "./src"` and `include: ["src/**/*"]`.** Without it, tsc's inferred rootDir includes `prisma/` too, so `dist/` mirrors the full project path (`dist/src/...`) instead of being flat. That breaks the relative import from `src/prisma/prisma.service.ts` to the generated client at `apps/api/generated/prisma` (the path depth no longer matches after compilation), even though `tsc` type-checks fine.
 - **Stock table columns are camelCase** (Prisma default — no `@map` was added per-field). Raw SQL in `movements.service.ts` (the `SELECT ... FOR UPDATE` lock) must quote identifiers exactly: `"productId"`, `"warehouseId"`, etc. — not `product_id`.
 - **CORS** is enabled in `apps/api/src/main.ts` via `app.enableCors({ origin: process.env.WEB_ORIGIN })`. If the web app's port changes, update `WEB_ORIGIN`.
+- **Every DTO field needs a `class-validator` decorator**, even ones with no real constraint (use `@IsString()` etc.) — `main.ts`'s global `ValidationPipe` has `whitelist: true`, which *silently drops* any property without at least one decorator instead of erroring. Hit this with `WarehousePermissionDto.role` (no decorator → dropped → Prisma threw "Argument `role` is missing" on `POST /users`). Fixed by adding `@IsIn([...])`.
 - Prisma client is generated to `apps/api/generated/prisma` (gitignored) — run `npx prisma generate` after pulling schema changes, before building.
+- **Rate limiting**: global default is 100 req/min per IP (`@nestjs/throttler`, configured in `app.module.ts`); `POST /auth/login` is overridden to 5 req/min via `@Throttle(...)` to slow down credential stuffing. A 429 includes a `Retry-After` header.
+- **Logging** is structured JSON via `nestjs-pino` (pretty-printed in non-production via `pino-pretty`); `Authorization` headers are redacted. Nest's standard `Logger` is wired through it (`app.useLogger(app.get(Logger))` in `main.ts`) — just use `new Logger(ClassName)` as usual, don't reach for `PinoLogger` directly unless you need pino-specific methods.
 
 ## Architecture notes (Fase 1)
 
