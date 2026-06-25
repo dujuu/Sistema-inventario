@@ -23,6 +23,11 @@ enum MovementType {
   ADJUSTMENT
 }
 
+enum TransferStatus {
+  IN_TRANSIT
+  RECEIVED
+}
+
 model User {
   id           String   @id @default(uuid())
   email        String   @unique
@@ -32,6 +37,8 @@ model User {
 
   warehousePermissions WarehousePermission[]
   stockMovements       StockMovement[]
+  transfersCreated     Transfer[]            @relation("TransferCreatedBy")
+  transfersReceived    Transfer[]            @relation("TransferReceivedBy")
 
   @@map("users")
 }
@@ -59,6 +66,7 @@ model Product {
 
   stock     Stock[]
   movements StockMovement[]
+  transfers Transfer[]
 
   @@map("products")
 }
@@ -72,6 +80,8 @@ model Warehouse {
   stock                Stock[]
   movements            StockMovement[]
   warehousePermissions WarehousePermission[]
+  transfersFrom        Transfer[]            @relation("TransferFrom")
+  transfersTo          Transfer[]            @relation("TransferTo")
 
   @@map("warehouses")
 }
@@ -108,4 +118,27 @@ model StockMovement {
   @@index([productId, warehouseId])
   @@index([createdAt])
   @@map("stock_movements")
+}
+
+model Transfer {
+  id              String         @id @default(uuid())
+  productId       String
+  fromWarehouseId String
+  toWarehouseId   String
+  quantity        Decimal        @db.Decimal(14, 4)
+  status          TransferStatus @default(IN_TRANSIT)
+  reference       String?
+  idempotencyKey  String         @unique
+  createdById     String
+  receivedById    String?
+  createdAt       DateTime       @default(now())
+  receivedAt      DateTime?
+
+  product       Product   @relation(fields: [productId], references: [id])
+  fromWarehouse Warehouse @relation("TransferFrom", fields: [fromWarehouseId], references: [id])
+  toWarehouse   Warehouse @relation("TransferTo", fields: [toWarehouseId], references: [id])
+  createdBy     User      @relation("TransferCreatedBy", fields: [createdById], references: [id])
+  receivedBy    User?     @relation("TransferReceivedBy", fields: [receivedById], references: [id])
+
+  @@map("transfers")
 }

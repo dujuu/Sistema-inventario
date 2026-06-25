@@ -74,4 +74,26 @@ describe('RolesGuard', () => {
     });
     expect(() => guard.canActivate(context)).toThrow(ForbiddenException);
   });
+
+  it('falls back to body.fromWarehouseId for transfer-shaped requests', () => {
+    (reflector.getAllAndOverride as jest.Mock).mockReturnValue([Role.OPERATOR]);
+    const context = buildContext({
+      user: { permissions: [{ warehouseId: 'wh-1', role: Role.OPERATOR }] },
+      params: {},
+      query: {},
+      body: { fromWarehouseId: 'wh-1', toWarehouseId: 'wh-2' },
+    });
+    expect(guard.canActivate(context)).toBe(true);
+  });
+
+  it('falls back to body.toWarehouseId for transfer-shaped requests', () => {
+    (reflector.getAllAndOverride as jest.Mock).mockReturnValue([Role.OPERATOR]);
+    const context = buildContext({
+      user: { permissions: [{ warehouseId: 'wh-2', role: Role.OPERATOR }] },
+      params: {},
+      query: {},
+      body: { toWarehouseId: 'wh-2' },
+    });
+    expect(guard.canActivate(context)).toBe(true);
+  });
 });

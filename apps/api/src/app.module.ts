@@ -12,6 +12,7 @@ import { CatalogModule } from './catalog/catalog.module';
 import { WarehousesModule } from './warehouses/warehouses.module';
 import { StockModule } from './stock/stock.module';
 import { MovementsModule } from './movements/movements.module';
+import { TransfersModule } from './transfers/transfers.module';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { MovementsModule } from './movements/movements.module';
     WarehousesModule,
     StockModule,
     MovementsModule,
+    TransfersModule,
   ],
   controllers: [AppController],
   providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }],

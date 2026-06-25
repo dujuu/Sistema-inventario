@@ -30,7 +30,9 @@ export class RolesGuard implements CanActivate {
     const warehouseId =
       request.params?.warehouseId ??
       request.query?.warehouse ??
-      (request.body?.warehouseId as string | undefined);
+      (request.body?.warehouseId as string | undefined) ??
+      (request.body?.fromWarehouseId as string | undefined) ??
+      (request.body?.toWarehouseId as string | undefined);
 
     const matches = user.permissions.filter((p) =>
       requiredRoles.includes(p.role),

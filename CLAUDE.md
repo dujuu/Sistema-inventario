@@ -38,13 +38,20 @@ npm run dev
 - Prisma client is generated to `apps/api/generated/prisma` (gitignored) — run `npx prisma generate` after pulling schema changes, before building.
 - **Rate limiting**: global default is 100 req/min per IP (`@nestjs/throttler`, configured in `app.module.ts`); `POST /auth/login` is overridden to 5 req/min via `@Throttle(...)` to slow down credential stuffing. A 429 includes a `Retry-After` header.
 - **Logging** is structured JSON via `nestjs-pino` (pretty-printed in non-production via `pino-pretty`); `Authorization` headers are redacted. Nest's standard `Logger` is wired through it (`app.useLogger(app.get(Logger))` in `main.ts`) — just use `new Logger(ClassName)` as usual, don't reach for `PinoLogger` directly unless you need pino-specific methods.
+- **`RolesGuard`'s warehouse resolution is a fallback chain**, not just `body.warehouseId`: `params.warehouseId ?? query.warehouse ?? body.warehouseId ?? body.fromWarehouseId ?? body.toWarehouseId` (see `src/common/guards/roles.guard.ts`). Any new warehouse-scoped DTO whose field isn't named one of these won't be authorized correctly — either name the field to match or extend the chain.
 
 ## Architecture notes (Fase 1)
 
 - Stock is never a loose mutable field: `stock_movements` is append-only (the ledger/audit trail), and `stock` is a transactional cache updated in the same DB transaction as the movement, using `SELECT ... FOR UPDATE` for row-level locking (`movements.service.ts`).
 - Every movement requires an `idempotencyKey`; retrying the same key returns the existing movement instead of duplicating it (checked before the transaction, and again via unique-constraint catch for the race case).
 - RBAC is warehouse-scoped: each `WarehousePermission` ties a user to a role (`ADMIN | SUPERVISOR | OPERATOR | READONLY`) for one specific warehouse. Permissions are embedded in the JWT at login time (not re-fetched from the DB per request) — `RolesGuard` reads them from `request.user.permissions`. Only endpoints decorated with `@Roles(...)` enforce this. `/users` requires `ADMIN` in any warehouse (not warehouse-scoped itself — see `RolesGuard`'s "no `warehouseId` in the request" branch). `catalog`/`warehouses` endpoints currently only require a valid JWT (no role check), which is a known Fase 1 simplification.
-- Redis is provisioned in `docker-compose.yml` for Fase 2 (reservations, low-stock alerts, BullMQ) but has no application code wired to it yet — Fase 1 doesn't need it.
+- Redis is provisioned in `docker-compose.yml` for Fase 2 (reservations, low-stock alerts, BullMQ) but has no application code wired to it yet.
+
+## Architecture notes (Fase 2)
+
+- **Transfers** (`src/transfers/`) are the first Fase 2 feature: a 2-phase move between warehouses. `POST /transfers` immediately creates an `OUT` movement at `fromWarehouseId` (stock leaves right away) and a `Transfer` row (`IN_TRANSIT`); `POST /transfers/:id/receive` creates the matching `IN` movement at `toWarehouseId` and marks it `RECEIVED`. Stock is never credited at the destination until receipt — there's an intentional window where the quantity is "in transit" and isn't counted at either warehouse's `Stock` row.
+- `TransfersService` reuses `MovementsService.create()` for both legs instead of duplicating the row-lock/idempotency logic — `MovementsModule` exports `MovementsService` for this. The movement idempotency keys are derived deterministically from the transfer's own idempotency key (`transfer-out:<key>`) or its id (`transfer-in:<id>`), not a freshly generated UUID — using a random id per call would break idempotency on retry (the second attempt would generate a different movement key and double-deduct stock). If you add another feature that wraps `MovementsService.create()`, follow the same deterministic-key pattern.
+- Receiving an already-`RECEIVED` transfer is a no-op (returns the existing row) rather than erroring — this, plus the transfer's own `idempotencyKey` check on creation, makes both endpoints safe to retry.
 
 ## Repo conventions
 

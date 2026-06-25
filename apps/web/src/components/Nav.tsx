@@ -18,6 +18,7 @@ export default function Nav() {
         <Link href="/dashboard">Stock</Link>
         <Link href="/products">Productos</Link>
         <Link href="/warehouses">Bodegas</Link>
+        <Link href="/transfers">Transferencias</Link>
       </div>
       <button onClick={handleLogout}>Cerrar sesión</button>
     </nav>
