@@ -28,6 +28,13 @@ enum TransferStatus {
   RECEIVED
 }
 
+enum PurchaseOrderStatus {
+  PENDING
+  PARTIALLY_RECEIVED
+  RECEIVED
+  CANCELLED
+}
+
 model User {
   id           String   @id @default(uuid())
   email        String   @unique
@@ -39,6 +46,7 @@ model User {
   stockMovements       StockMovement[]
   transfersCreated     Transfer[]            @relation("TransferCreatedBy")
   transfersReceived    Transfer[]            @relation("TransferReceivedBy")
+  purchaseOrders       PurchaseOrder[]
 
   @@map("users")
 }
@@ -64,9 +72,10 @@ model Product {
   cost      Decimal  @default(0) @db.Decimal(14, 4)
   createdAt DateTime @default(now())
 
-  stock     Stock[]
-  movements StockMovement[]
-  transfers Transfer[]
+  stock              Stock[]
+  movements          StockMovement[]
+  transfers          Transfer[]
+  purchaseOrderLines PurchaseOrderLine[]
 
   @@map("products")
 }
@@ -82,6 +91,7 @@ model Warehouse {
   warehousePermissions WarehousePermission[]
   transfersFrom        Transfer[]            @relation("TransferFrom")
   transfersTo          Transfer[]            @relation("TransferTo")
+  purchaseOrders       PurchaseOrder[]
 
   @@map("warehouses")
 }
@@ -141,4 +151,49 @@ model Transfer {
   receivedBy    User?     @relation("TransferReceivedBy", fields: [receivedById], references: [id])
 
   @@map("transfers")
+}
+
+model Supplier {
+  id        String   @id @default(uuid())
+  name      String
+  taxId     String?  @unique
+  email     String?
+  phone     String?
+  createdAt DateTime @default(now())
+
+  purchaseOrders PurchaseOrder[]
+
+  @@map("suppliers")
+}
+
+model PurchaseOrder {
+  id             String              @id @default(uuid())
+  supplierId     String
+  warehouseId    String
+  status         PurchaseOrderStatus @default(PENDING)
+  reference      String?
+  idempotencyKey String              @unique
+  createdById    String
+  createdAt      DateTime            @default(now())
+
+  supplier  Supplier            @relation(fields: [supplierId], references: [id])
+  warehouse Warehouse           @relation(fields: [warehouseId], references: [id])
+  createdBy User                @relation(fields: [createdById], references: [id])
+  lines     PurchaseOrderLine[]
+
+  @@map("purchase_orders")
+}
+
+model PurchaseOrderLine {
+  id               String  @id @default(uuid())
+  purchaseOrderId  String
+  productId        String
+  quantityOrdered  Decimal @db.Decimal(14, 4)
+  quantityReceived Decimal @default(0) @db.Decimal(14, 4)
+  unitCost         Decimal @db.Decimal(14, 4)
+
+  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  product       Product       @relation(fields: [productId], references: [id])
+
+  @@map("purchase_order_lines")
 }
