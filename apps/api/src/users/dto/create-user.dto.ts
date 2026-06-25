@@ -2,6 +2,7 @@ import { Type } from 'class-transformer';
 import {
   IsArray,
   IsEmail,
+  IsIn,
   IsString,
   MinLength,
   ValidateNested,
@@ -12,6 +13,7 @@ export class WarehousePermissionDto {
   @IsString()
   warehouseId: string;
 
+  @IsIn(['ADMIN', 'SUPERVISOR', 'OPERATOR', 'READONLY'])
   role: Role;
 }
 
