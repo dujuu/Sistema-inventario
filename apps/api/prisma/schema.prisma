@@ -1,0 +1,111 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  ADMIN
+  SUPERVISOR
+  OPERATOR
+  READONLY
+}
+
+enum MovementType {
+  IN
+  OUT
+  ADJUSTMENT
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  createdAt    DateTime @default(now())
+
+  warehousePermissions WarehousePermission[]
+  stockMovements       StockMovement[]
+
+  @@map("users")
+}
+
+model WarehousePermission {
+  userId      String
+  warehouseId String
+  role        Role
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  warehouse Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+
+  @@id([userId, warehouseId])
+  @@map("warehouse_permissions")
+}
+
+model Product {
+  id        String   @id @default(uuid())
+  sku       String   @unique
+  barcode   String?
+  name      String
+  unit      String
+  cost      Decimal  @default(0) @db.Decimal(14, 4)
+  createdAt DateTime @default(now())
+
+  stock     Stock[]
+  movements StockMovement[]
+
+  @@map("products")
+}
+
+model Warehouse {
+  id        String   @id @default(uuid())
+  code      String   @unique
+  name      String
+  createdAt DateTime @default(now())
+
+  stock                Stock[]
+  movements            StockMovement[]
+  warehousePermissions WarehousePermission[]
+
+  @@map("warehouses")
+}
+
+model Stock {
+  productId        String
+  warehouseId      String
+  quantityOnHand   Decimal @default(0) @db.Decimal(14, 4)
+  quantityReserved Decimal @default(0) @db.Decimal(14, 4)
+  version          Int     @default(0)
+
+  product   Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  warehouse Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+
+  @@id([productId, warehouseId])
+  @@map("stock")
+}
+
+model StockMovement {
+  id             String       @id @default(uuid())
+  productId      String
+  warehouseId    String
+  type           MovementType
+  quantity       Decimal      @db.Decimal(14, 4)
+  reference      String?
+  idempotencyKey String       @unique
+  createdById    String
+  createdAt      DateTime     @default(now())
+
+  product   Product   @relation(fields: [productId], references: [id])
+  warehouse Warehouse @relation(fields: [warehouseId], references: [id])
+  createdBy User      @relation(fields: [createdById], references: [id])
+
+  @@index([productId, warehouseId])
+  @@index([createdAt])
+  @@map("stock_movements")
+}
