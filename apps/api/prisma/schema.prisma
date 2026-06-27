@@ -35,6 +35,13 @@ enum PurchaseOrderStatus {
   CANCELLED
 }
 
+enum ReservationStatus {
+  ACTIVE
+  DISPATCHED
+  CANCELLED
+  EXPIRED
+}
+
 model User {
   id           String   @id @default(uuid())
   email        String   @unique
@@ -42,11 +49,13 @@ model User {
   name         String
   createdAt    DateTime @default(now())
 
-  warehousePermissions WarehousePermission[]
-  stockMovements       StockMovement[]
-  transfersCreated     Transfer[]            @relation("TransferCreatedBy")
-  transfersReceived    Transfer[]            @relation("TransferReceivedBy")
-  purchaseOrders       PurchaseOrder[]
+  warehousePermissions   WarehousePermission[]
+  stockMovements         StockMovement[]
+  transfersCreated       Transfer[]            @relation("TransferCreatedBy")
+  transfersReceived      Transfer[]            @relation("TransferReceivedBy")
+  purchaseOrders         PurchaseOrder[]
+  reservationsCreated    Reservation[]         @relation("ReservationCreatedBy")
+  reservationsDispatched Reservation[]         @relation("ReservationDispatchedBy")
 
   @@map("users")
 }
@@ -76,6 +85,7 @@ model Product {
   movements          StockMovement[]
   transfers          Transfer[]
   purchaseOrderLines PurchaseOrderLine[]
+  reservations       Reservation[]
 
   @@map("products")
 }
@@ -92,6 +102,7 @@ model Warehouse {
   transfersFrom        Transfer[]            @relation("TransferFrom")
   transfersTo          Transfer[]            @relation("TransferTo")
   purchaseOrders       PurchaseOrder[]
+  reservations         Reservation[]
 
   @@map("warehouses")
 }
@@ -196,4 +207,27 @@ model PurchaseOrderLine {
   product       Product       @relation(fields: [productId], references: [id])
 
   @@map("purchase_order_lines")
+}
+
+model Reservation {
+  id             String            @id @default(uuid())
+  productId      String
+  warehouseId    String
+  quantity       Decimal           @db.Decimal(14, 4)
+  status         ReservationStatus @default(ACTIVE)
+  reference      String?
+  idempotencyKey String            @unique
+  expiresAt      DateTime?
+  createdById    String
+  dispatchedById String?
+  createdAt      DateTime          @default(now())
+  dispatchedAt   DateTime?
+  resolvedAt     DateTime?
+
+  product      Product   @relation(fields: [productId], references: [id])
+  warehouse    Warehouse @relation(fields: [warehouseId], references: [id])
+  createdBy    User      @relation("ReservationCreatedBy", fields: [createdById], references: [id])
+  dispatchedBy User?     @relation("ReservationDispatchedBy", fields: [dispatchedById], references: [id])
+
+  @@map("reservations")
 }
