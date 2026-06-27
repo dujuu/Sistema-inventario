@@ -1,11 +1,16 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma, MovementType } from '../../generated/prisma';
 import { CreateMovementDto } from './dto/create-movement.dto';
 
 @Injectable()
 export class MovementsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @InjectQueue('stock-alerts') private readonly alertsQueue: Queue,
+  ) {}
 
   async create(dto: CreateMovementDto, userId: string) {
     const existing = await this.prisma.stockMovement.findUnique({
@@ -22,8 +27,9 @@ export class MovementsService {
       throw new BadRequestException('quantity no puede ser 0 en un ajuste');
     }
 
+    let movement: Awaited<ReturnType<typeof this.prisma.stockMovement.create>>;
     try {
-      return await this.prisma.$transaction(async (tx) => {
+      movement = await this.prisma.$transaction(async (tx) => {
         await tx.$executeRaw`
           INSERT INTO "stock" ("productId", "warehouseId", "quantityOnHand", "quantityReserved", "version")
           VALUES (${dto.productId}, ${dto.warehouseId}, 0, 0, 0)
@@ -92,5 +98,14 @@ export class MovementsService {
       }
       throw error;
     }
+
+    // Fire-and-forget: deduplicated by jobId for rapid bursts on the same pair.
+    void this.alertsQueue.add(
+      'check',
+      { productId: dto.productId, warehouseId: dto.warehouseId },
+      { jobId: `check:${dto.productId}:${dto.warehouseId}`, removeOnComplete: true },
+    );
+
+    return movement;
   }
 }

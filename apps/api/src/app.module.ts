@@ -17,6 +17,7 @@ import { TransfersModule } from './transfers/transfers.module';
 import { SuppliersModule } from './suppliers/suppliers.module';
 import { PurchaseOrdersModule } from './purchase-orders/purchase-orders.module';
 import { ReservationsModule } from './reservations/reservations.module';
+import { StockAlertsModule } from './stock-alerts/stock-alerts.module';
 
 @Module({
   imports: [
@@ -49,6 +50,7 @@ import { ReservationsModule } from './reservations/reservations.module';
     SuppliersModule,
     PurchaseOrdersModule,
     ReservationsModule,
+    StockAlertsModule,
   ],
   controllers: [AppController],
   providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }],
