@@ -25,6 +25,7 @@ export default function Nav() {
         <Link href="/stock-alerts">Alertas</Link>
         <Link href="/reports">Valorización</Link>
         <Link href="/reports/kardex">Kardex</Link>
+        <Link href="/cycle-counts">Conteos</Link>
       </div>
       <button onClick={handleLogout}>Cerrar sesión</button>
     </nav>

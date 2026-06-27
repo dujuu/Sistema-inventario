@@ -56,6 +56,8 @@ model User {
   purchaseOrders         PurchaseOrder[]
   reservationsCreated    Reservation[]         @relation("ReservationCreatedBy")
   reservationsDispatched Reservation[]         @relation("ReservationDispatchedBy")
+  cycleCountsCreated     CycleCount[]          @relation("CycleCountCreatedBy")
+  cycleCountsCommitted   CycleCount[]          @relation("CycleCountCommittedBy")
 
   @@map("users")
 }
@@ -87,6 +89,7 @@ model Product {
   purchaseOrderLines PurchaseOrderLine[]
   reservations       Reservation[]
   stockAlerts        StockAlert[]
+  cycleCountLines    CycleCountLine[]
 
   @@map("products")
 }
@@ -105,6 +108,7 @@ model Warehouse {
   purchaseOrders       PurchaseOrder[]
   reservations         Reservation[]
   stockAlerts          StockAlert[]
+  cycleCounts          CycleCount[]
 
   @@map("warehouses")
 }
@@ -229,6 +233,45 @@ model PurchaseOrderLine {
   product       Product       @relation(fields: [productId], references: [id])
 
   @@map("purchase_order_lines")
+}
+
+enum CycleCountStatus {
+  DRAFT
+  COMMITTED
+  CANCELLED
+}
+
+model CycleCount {
+  id            String           @id @default(uuid())
+  warehouseId   String
+  status        CycleCountStatus @default(DRAFT)
+  reference     String?
+  createdById   String
+  committedById String?
+  createdAt     DateTime         @default(now())
+  committedAt   DateTime?
+
+  warehouse   Warehouse       @relation(fields: [warehouseId], references: [id])
+  createdBy   User            @relation("CycleCountCreatedBy", fields: [createdById], references: [id])
+  committedBy User?           @relation("CycleCountCommittedBy", fields: [committedById], references: [id])
+  lines       CycleCountLine[]
+
+  @@map("cycle_counts")
+}
+
+model CycleCountLine {
+  id              String   @id @default(uuid())
+  cycleCountId    String
+  productId       String
+  systemQuantity  Decimal  @db.Decimal(14, 4)
+  countedQuantity Decimal? @db.Decimal(14, 4)
+  difference      Decimal? @db.Decimal(14, 4)
+
+  cycleCount CycleCount @relation(fields: [cycleCountId], references: [id], onDelete: Cascade)
+  product    Product    @relation(fields: [productId], references: [id])
+
+  @@unique([cycleCountId, productId])
+  @@map("cycle_count_lines")
 }
 
 model Reservation {

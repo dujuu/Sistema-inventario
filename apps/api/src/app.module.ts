@@ -19,6 +19,7 @@ import { PurchaseOrdersModule } from './purchase-orders/purchase-orders.module';
 import { ReservationsModule } from './reservations/reservations.module';
 import { StockAlertsModule } from './stock-alerts/stock-alerts.module';
 import { ReportsModule } from './reports/reports.module';
+import { CycleCountsModule } from './cycle-counts/cycle-counts.module';
 
 @Module({
   imports: [
@@ -53,6 +54,7 @@ import { ReportsModule } from './reports/reports.module';
     ReservationsModule,
     StockAlertsModule,
     ReportsModule,
+    CycleCountsModule,
   ],
   controllers: [AppController],
   providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }],
