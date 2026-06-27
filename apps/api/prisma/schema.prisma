@@ -58,6 +58,8 @@ model User {
   reservationsDispatched Reservation[]         @relation("ReservationDispatchedBy")
   cycleCountsCreated     CycleCount[]          @relation("CycleCountCreatedBy")
   cycleCountsCommitted   CycleCount[]          @relation("CycleCountCommittedBy")
+  saleOrdersCreated      SaleOrder[]           @relation("SaleOrderCreatedBy")
+  saleOrdersDispatched   SaleOrder[]           @relation("SaleOrderDispatchedBy")
 
   @@map("users")
 }
@@ -90,6 +92,7 @@ model Product {
   reservations       Reservation[]
   stockAlerts        StockAlert[]
   cycleCountLines    CycleCountLine[]
+  saleOrderLines     SaleOrderLine[]
 
   @@map("products")
 }
@@ -109,6 +112,7 @@ model Warehouse {
   reservations         Reservation[]
   stockAlerts          StockAlert[]
   cycleCounts          CycleCount[]
+  saleOrders           SaleOrder[]
 
   @@map("warehouses")
 }
@@ -235,10 +239,49 @@ model PurchaseOrderLine {
   @@map("purchase_order_lines")
 }
 
+enum SaleOrderStatus {
+  PENDING
+  DISPATCHED
+  CANCELLED
+}
+
 enum CycleCountStatus {
   DRAFT
   COMMITTED
   CANCELLED
+}
+
+model SaleOrder {
+  id             String          @id @default(uuid())
+  warehouseId    String
+  status         SaleOrderStatus @default(PENDING)
+  reference      String?
+  customerName   String?
+  idempotencyKey String          @unique
+  createdById    String
+  dispatchedById String?
+  createdAt      DateTime        @default(now())
+  dispatchedAt   DateTime?
+
+  warehouse    Warehouse      @relation(fields: [warehouseId], references: [id])
+  createdBy    User           @relation("SaleOrderCreatedBy", fields: [createdById], references: [id])
+  dispatchedBy User?          @relation("SaleOrderDispatchedBy", fields: [dispatchedById], references: [id])
+  lines        SaleOrderLine[]
+
+  @@map("sale_orders")
+}
+
+model SaleOrderLine {
+  id          String  @id @default(uuid())
+  saleOrderId String
+  productId   String
+  quantity    Decimal @db.Decimal(14, 4)
+  unitPrice   Decimal @db.Decimal(14, 4)
+
+  saleOrder SaleOrder @relation(fields: [saleOrderId], references: [id], onDelete: Cascade)
+  product   Product   @relation(fields: [productId], references: [id])
+
+  @@map("sale_order_lines")
 }
 
 model CycleCount {
